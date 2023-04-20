@@ -601,176 +601,176 @@ void classifyEasyFaces(FaceLoopList &face_loops,
 }
 #endif
 
-void carve::csg::CSG::classifyFaceGroupsSimple(
-    const V2Set& shared_edges, VertexClassification& vclass,
-    const carve::poly::Polyhedron* poly_a, FLGroupList& a_loops_grouped,
-    const LoopEdges& a_edge_map, const carve::poly::Polyhedron* poly_b,
-    FLGroupList& b_loops_grouped, const LoopEdges& b_edge_map,
-    Collector& collector) {
-#if 0
-  // Old proto
-  void carve::csg::CSG::classifyFaces(carve::csg::FaceLoopList &a_face_loops,
-                                      size_t a_edge_count,
-                                      carve::csg::FaceLoopList &b_face_loops, 
-                                      size_t b_edge_count,
-                                      VertexClassification &vclass,
-                                      const carve::poly::Polyhedron *poly_a,
-                                      const carve::poly::Polyhedron *poly_b,
-                                      Collector &collector);
-
-  std::cerr << "classify:  "
-            << a_face_loops.size() << " cases in polyhedron a"
-            << std::endl;
-  std::cerr << "classify:  "
-            << b_face_loops.size() << " cases in polyhedron b"
-            << std::endl;
-
-  classifyEasyFaces(a_face_loops, vclass, poly_b, 1, intersections, collector);
-  classifyEasyFaces(b_face_loops, vclass, poly_a, 0, intersections, collector);
-
-#if 0 && defined(CARVE_DEBUG)
-  HOOK(drawFaceLoopList(a_face_loops, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f););
-  HOOK(drawFaceLoopList(b_face_loops, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f););
-#endif
-
-  std::cerr << "classify:  "
-            << a_face_loops.size() << " hard cases in polyhedron a"
-            << std::endl;
-  std::cerr << "classify:  "
-            << b_face_loops.size() << " hard cases in polyhedron b"
-            << std::endl;
-
-  classifySimpleOnFaces(a_face_loops, b_face_loops, poly_a, poly_b, collector);
-
-  std::cerr << "classify:  "
-            << a_face_loops.size()
-            << " after elimination of easy pairs: polyhedron a" << std::endl;
-  std::cerr << "classify:  "
-            << b_face_loops.size()
-            << " after elimination of easy pairs: polyhedron b" << std::endl;
-
-  classifyOnFaces_2(a_face_loops,
-                    b_face_loops,
-                    vclass, poly_a,
-                    poly_b,
-                    collector);
-
-  std::cerr << "classify:  " << a_face_loops.size() << " after elimination of hard pairs: polyhedron a" << std::endl;
-  std::cerr << "classify:  " << b_face_loops.size() << " after elimination of hard pairs: polyhedron b" << std::endl;
-
-  FaceLoop *fla, *flb;
-
-  for (fla = a_face_loops.head; fla; fla = fla->next) {
-    const Face *f(fla->orig_face);
-    std::vector<const Vector *> &loop(fla->vertices);
-    std::vector<P2> proj;
-    proj.reserve(loop.size());
-    for (unsigned i = 0; i < loop.size(); ++i) {
-      proj.push_back((f->*(f->project))(*loop[i]));
-    }
-    P2 pv;
-    if (!pickContainedPoint(proj, pv)) {
-      CARVE_FAIL("pickContainedPoint failed");
-    }
-    Vector v = (f->*(f->unproject))(pv);
-
-    const Face *hit_face;
-    PointClass pc = poly_b->containsVertex(v, &hit_face);
-
-    FaceClass fc = FACE_ON;
-
-    if (pc != POINT_IN && pc != POINT_OUT) {
-      std::cerr << "WARNING: last resort classifier found an ON face"
-                << std::endl;
-    }
-
-    switch (pc) {
-    case POINT_IN:  fc = FACE_IN; break;
-    case POINT_OUT: fc = FACE_OUT; break;
-    case POINT_ON: {
-      double d = dot(hit_face->normal, f->normal);
-      fc = d < 0.0 ? FACE_ON_ORIENT_IN : FACE_ON_ORIENT_OUT;
-      break;
-    }
-    default:
-      CARVE_FAIL("should not happen");
-    }
-
-    // CARVE_ASSERT(pc == POINT_IN || pc == POINT_OUT);
-#if defined(CARVE_DEBUG)
-    {
-      float r,g,b,a;
-      switch(fc) {
-      case FACE_IN:            r=1; g=0; b=0; a=1; break;
-      case FACE_OUT:           r=0; g=0; b=1; a=1; break;
-      case FACE_ON_ORIENT_OUT: r=1; g=1; b=0; a=1; break;
-      case FACE_ON_ORIENT_IN:  r=0; g=1; b=1; a=1; break;
-      }
-      if (fc != FACE_IN && fc != FACE_OUT) {
-        HOOK(drawFaceLoopWireframe(loop, f->normal, r, g, b, a););
-        HOOK(drawPoint(&v, 1, 1, 1, 1, 30.0););
-      }
-    }
-#endif
-
-    collector.collect(f, loop, f->normal, true, fc);
-  }
-
-  for (flb = b_face_loops.head; flb; flb = flb->next) {
-    const Face *f(flb->orig_face);
-    std::vector<const Vector *> &loop(flb->vertices);
-    std::vector<P2> proj;
-    proj.reserve(loop.size());
-    for (unsigned i = 0; i < loop.size(); ++i) {
-      proj.push_back((f->*(f->project))(*loop[i]));
-    }
-    P2 pv;
-    if (!pickContainedPoint(proj, pv)) {
-      CARVE_FAIL("pickContainedPoint failed");
-    }
-    Vector v = (f->*(f->unproject))(pv);
-
-    const Face *hit_face;
-    PointClass pc = poly_a->containsVertex(v, &hit_face);
-
-    FaceClass fc = FACE_ON;
-
-    if (pc != POINT_IN && pc != POINT_OUT) {
-      std::cerr << "WARNING: last resort classifier found an ON face"
-                << std::endl;
-    }
-
-    switch (pc) {
-    case POINT_IN:  fc = FACE_IN; break;
-    case POINT_OUT: fc = FACE_OUT; break;
-    case POINT_ON: {
-      double d = dot(hit_face->normal, f->normal);
-      fc = d < 0.0 ? FACE_ON_ORIENT_IN : FACE_ON_ORIENT_OUT;
-      break;
-    }
-    default:
-      CARVE_FAIL("should not happen");
-    }
-
-    // CARVE_ASSERT(pc == POINT_IN || pc == POINT_OUT);
-#if defined(CARVE_DEBUG)
-    {
-      float r,g,b,a;
-      switch(fc) {
-      case FACE_IN:            r=1; g=0; b=0; a=1; break;
-      case FACE_OUT:           r=0; g=0; b=1; a=1; break;
-      case FACE_ON_ORIENT_OUT: r=1; g=1; b=0; a=1; break;
-      case FACE_ON_ORIENT_IN:  r=0; g=1; b=1; a=1; break;
-      }
-      // HOOK(drawFaceLoop(loop, f->normal, r, g, b, a););
-      if (fc != FACE_IN && fc != FACE_OUT) {
-        HOOK(drawFaceLoopWireframe(loop, f->normal, r, g, b, a););
-        HOOK(drawPoint(&v, 1, 1, 1, 1, 30.0););
-      }
-    }
-#endif
-
-    collector.collect(f, loop, f->normal, false, fc);
-  }
-#endif
-}
+//void carve::csg::CSG::classifyFaceGroupsSimple(
+//    const V2Set& shared_edges, VertexClassification& vclass,
+//    const carve::poly::Polyhedron* poly_a, FLGroupList& a_loops_grouped,
+//    const LoopEdges& a_edge_map, const carve::poly::Polyhedron* poly_b,
+//    FLGroupList& b_loops_grouped, const LoopEdges& b_edge_map,
+//    Collector& collector) {
+//#if 0
+//  // Old proto
+//  void carve::csg::CSG::classifyFaces(carve::csg::FaceLoopList &a_face_loops,
+//                                      size_t a_edge_count,
+//                                      carve::csg::FaceLoopList &b_face_loops, 
+//                                      size_t b_edge_count,
+//                                      VertexClassification &vclass,
+//                                      const carve::poly::Polyhedron *poly_a,
+//                                      const carve::poly::Polyhedron *poly_b,
+//                                      Collector &collector);
+//
+//  std::cerr << "classify:  "
+//            << a_face_loops.size() << " cases in polyhedron a"
+//            << std::endl;
+//  std::cerr << "classify:  "
+//            << b_face_loops.size() << " cases in polyhedron b"
+//            << std::endl;
+//
+//  classifyEasyFaces(a_face_loops, vclass, poly_b, 1, intersections, collector);
+//  classifyEasyFaces(b_face_loops, vclass, poly_a, 0, intersections, collector);
+//
+//#if 0 && defined(CARVE_DEBUG)
+//  HOOK(drawFaceLoopList(a_face_loops, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 0.0f, 1.0f););
+//  HOOK(drawFaceLoopList(b_face_loops, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f, 1.0f););
+//#endif
+//
+//  std::cerr << "classify:  "
+//            << a_face_loops.size() << " hard cases in polyhedron a"
+//            << std::endl;
+//  std::cerr << "classify:  "
+//            << b_face_loops.size() << " hard cases in polyhedron b"
+//            << std::endl;
+//
+//  classifySimpleOnFaces(a_face_loops, b_face_loops, poly_a, poly_b, collector);
+//
+//  std::cerr << "classify:  "
+//            << a_face_loops.size()
+//            << " after elimination of easy pairs: polyhedron a" << std::endl;
+//  std::cerr << "classify:  "
+//            << b_face_loops.size()
+//            << " after elimination of easy pairs: polyhedron b" << std::endl;
+//
+//  classifyOnFaces_2(a_face_loops,
+//                    b_face_loops,
+//                    vclass, poly_a,
+//                    poly_b,
+//                    collector);
+//
+//  std::cerr << "classify:  " << a_face_loops.size() << " after elimination of hard pairs: polyhedron a" << std::endl;
+//  std::cerr << "classify:  " << b_face_loops.size() << " after elimination of hard pairs: polyhedron b" << std::endl;
+//
+//  FaceLoop *fla, *flb;
+//
+//  for (fla = a_face_loops.head; fla; fla = fla->next) {
+//    const Face *f(fla->orig_face);
+//    std::vector<const Vector *> &loop(fla->vertices);
+//    std::vector<P2> proj;
+//    proj.reserve(loop.size());
+//    for (unsigned i = 0; i < loop.size(); ++i) {
+//      proj.push_back((f->*(f->project))(*loop[i]));
+//    }
+//    P2 pv;
+//    if (!pickContainedPoint(proj, pv)) {
+//      CARVE_FAIL("pickContainedPoint failed");
+//    }
+//    Vector v = (f->*(f->unproject))(pv);
+//
+//    const Face *hit_face;
+//    PointClass pc = poly_b->containsVertex(v, &hit_face);
+//
+//    FaceClass fc = FACE_ON;
+//
+//    if (pc != POINT_IN && pc != POINT_OUT) {
+//      std::cerr << "WARNING: last resort classifier found an ON face"
+//                << std::endl;
+//    }
+//
+//    switch (pc) {
+//    case POINT_IN:  fc = FACE_IN; break;
+//    case POINT_OUT: fc = FACE_OUT; break;
+//    case POINT_ON: {
+//      double d = dot(hit_face->normal, f->normal);
+//      fc = d < 0.0 ? FACE_ON_ORIENT_IN : FACE_ON_ORIENT_OUT;
+//      break;
+//    }
+//    default:
+//      CARVE_FAIL("should not happen");
+//    }
+//
+//    // CARVE_ASSERT(pc == POINT_IN || pc == POINT_OUT);
+//#if defined(CARVE_DEBUG)
+//    {
+//      float r,g,b,a;
+//      switch(fc) {
+//      case FACE_IN:            r=1; g=0; b=0; a=1; break;
+//      case FACE_OUT:           r=0; g=0; b=1; a=1; break;
+//      case FACE_ON_ORIENT_OUT: r=1; g=1; b=0; a=1; break;
+//      case FACE_ON_ORIENT_IN:  r=0; g=1; b=1; a=1; break;
+//      }
+//      if (fc != FACE_IN && fc != FACE_OUT) {
+//        HOOK(drawFaceLoopWireframe(loop, f->normal, r, g, b, a););
+//        HOOK(drawPoint(&v, 1, 1, 1, 1, 30.0););
+//      }
+//    }
+//#endif
+//
+//    collector.collect(f, loop, f->normal, true, fc);
+//  }
+//
+//  for (flb = b_face_loops.head; flb; flb = flb->next) {
+//    const Face *f(flb->orig_face);
+//    std::vector<const Vector *> &loop(flb->vertices);
+//    std::vector<P2> proj;
+//    proj.reserve(loop.size());
+//    for (unsigned i = 0; i < loop.size(); ++i) {
+//      proj.push_back((f->*(f->project))(*loop[i]));
+//    }
+//    P2 pv;
+//    if (!pickContainedPoint(proj, pv)) {
+//      CARVE_FAIL("pickContainedPoint failed");
+//    }
+//    Vector v = (f->*(f->unproject))(pv);
+//
+//    const Face *hit_face;
+//    PointClass pc = poly_a->containsVertex(v, &hit_face);
+//
+//    FaceClass fc = FACE_ON;
+//
+//    if (pc != POINT_IN && pc != POINT_OUT) {
+//      std::cerr << "WARNING: last resort classifier found an ON face"
+//                << std::endl;
+//    }
+//
+//    switch (pc) {
+//    case POINT_IN:  fc = FACE_IN; break;
+//    case POINT_OUT: fc = FACE_OUT; break;
+//    case POINT_ON: {
+//      double d = dot(hit_face->normal, f->normal);
+//      fc = d < 0.0 ? FACE_ON_ORIENT_IN : FACE_ON_ORIENT_OUT;
+//      break;
+//    }
+//    default:
+//      CARVE_FAIL("should not happen");
+//    }
+//
+//    // CARVE_ASSERT(pc == POINT_IN || pc == POINT_OUT);
+//#if defined(CARVE_DEBUG)
+//    {
+//      float r,g,b,a;
+//      switch(fc) {
+//      case FACE_IN:            r=1; g=0; b=0; a=1; break;
+//      case FACE_OUT:           r=0; g=0; b=1; a=1; break;
+//      case FACE_ON_ORIENT_OUT: r=1; g=1; b=0; a=1; break;
+//      case FACE_ON_ORIENT_IN:  r=0; g=1; b=1; a=1; break;
+//      }
+//      // HOOK(drawFaceLoop(loop, f->normal, r, g, b, a););
+//      if (fc != FACE_IN && fc != FACE_OUT) {
+//        HOOK(drawFaceLoopWireframe(loop, f->normal, r, g, b, a););
+//        HOOK(drawPoint(&v, 1, 1, 1, 1, 30.0););
+//      }
+//    }
+//#endif
+//
+//    collector.collect(f, loop, f->normal, false, fc);
+//  }
+//#endif
+//}
